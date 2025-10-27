@@ -1,62 +1,136 @@
 ﻿using UnityEngine;
-using SFB;
 using System.Collections;
 using System.IO;
-using System.Threading.Tasks; // Necesario para la carga asíncrona
-using GLTFast; // Necesario para el importador GLTF (glTFast)
+using System.Threading.Tasks;
+using GLTFast;
+using NativeFilePickerNamespace;
+using UnityEngine.Networking;
 
 public class RuntimeLoader : MonoBehaviour
 {
+    // MIME types separadas por punto y coma.
+    private const string GLTF_MIME_TYPES = "model/gltf+json;model/gltf-binary";
+
+    // --- MÉTODOS PÚBLICOS ---
+
     // Este método se llama desde un botón de la UI
     public void OpenFileBrowserAndLoad()
     {
-        // 1. Definir los filtros de extensión
-        ExtensionFilter[] extensions = new[] {
-            new ExtensionFilter("Modelos GLB/GLTF", "glb", "gltf"),
-        };
+        // El plugin PickFile es void en esta versión, solo inicia el diálogo.
+        NativeFilePicker.PickFile(
+            (path) => // Callback: recibe el Content URI o null
+            {
+                if (path != null)
+                {
+                    string contentUri = path;
+                    Debug.Log("Archivo seleccionado (Content URI): " + contentUri);
 
-        // 2. Abrir el cuadro de diálogo de selección de archivos
-        // La variable 'paths' se declara AQUÍ
-        string[] paths = StandaloneFileBrowser.OpenFilePanel(
-            "Seleccionar Modelo 3D",
-            "",
-            extensions,
-            false
+                    // Llama al proceso de carga que ahora incluye la lógica de lectura directa
+                    StartCoroutine(CopyAndLoadModelCoroutine(contentUri));
+                }
+                else
+                {
+                    Debug.Log("❌ Selección de archivo cancelada.");
+                }
+            },
+
+            // Pasar los MIME types como una ÚNICA cadena de texto.
+            GLTF_MIME_TYPES
         );
-
-        // 3. Verificar si el usuario seleccionó un archivo
-        // Ahora 'paths' es accesible porque está en el mismo ámbito.
-        if (paths.Length > 0 && !string.IsNullOrEmpty(paths[0])) // <--- Estos son los puntos donde te daba error
-        {
-            string localPath = paths[0];
-            Debug.Log("Archivo seleccionado: " + localPath);
-
-            // 4. Iniciar la lectura y la importación (usando el método asíncrono)
-            LoadLocalModelAsync(localPath);
-        }
     }
 
-    // Usamos async Task para la carga, que es el método recomendado para glTFast
-    async Task LoadLocalModelAsync(string localPath)
-    {
-        // 1. Leer el archivo binario completo del disco
-        byte[] modelData = File.ReadAllBytes(localPath);
+    // --- MÉTODOS DE LECTURA Y CARGA ---
 
-        // 2. Crear una nueva instancia del importador GLTF
+    // Método actualizado: intenta leer el archivo directamente sin depender de una
+    // API de copia que puede no existir. Soporta:
+    // - rutas locales (absolute path o file://)
+    // - URI remotas o content:// mediante UnityWebRequest
+    private IEnumerator CopyAndLoadModelCoroutine(string contentUri)
+    {
+        byte[] modelData = null;
+
+        // 1) Si es una URI con esquema file:// -> leer con File.ReadAllBytes
+        if (contentUri.StartsWith("file://"))
+        {
+            string localPath = contentUri.Substring("file://".Length);
+            if (File.Exists(localPath))
+            {
+                try
+                {
+                    modelData = File.ReadAllBytes(localPath);
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError("❌ Error leyendo archivo local: " + ex.Message);
+                    yield break;
+                }
+            }
+        }
+        // 2) Si la ruta es directamente accesible como archivo
+        else if (File.Exists(contentUri))
+        {
+            try
+            {
+                modelData = File.ReadAllBytes(contentUri);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError("❌ Error leyendo archivo: " + ex.Message);
+                yield break;
+            }
+        }
+        // 3) Intentar leer mediante UnityWebRequest (funciona para muchas URIs, incluidas content:// en varias plataformas)
+        else
+        {
+            using (UnityWebRequest uwr = UnityWebRequest.Get(contentUri))
+            {
+                uwr.downloadHandler = new DownloadHandlerBuffer();
+                yield return uwr.SendWebRequest();
+
+#if UNITY_2020_1_OR_NEWER
+                if (uwr.result != UnityWebRequest.Result.Success)
+#else
+                if (uwr.isNetworkError || uwr.isHttpError)
+#endif
+                {
+                    Debug.LogError("❌ Error al leer la URI: " + uwr.error + " | URI: " + contentUri);
+                    yield break;
+                }
+
+                modelData = uwr.downloadHandler.data;
+            }
+        }
+
+        // 4) Validar datos leídos
+        if (modelData == null || modelData.Length == 0)
+        {
+            Debug.LogError("❌ Fallo al leer los datos del archivo seleccionado.");
+            yield break;
+        }
+
+        // 5) Iniciar la importación asíncrona (no bloqueante)
+        _ = LoadBinaryModelAsync(modelData);
+
+        yield break;
+    }
+
+    // Tu método de carga asíncrona de GLTF/GLB
+    async Task LoadBinaryModelAsync(byte[] modelData)
+    {
         var gltf = new GltfImport();
 
-        // 3. Cargar los datos binarios de forma asíncrona usando 'await'
+        // Se mantiene LoadGltfBinary para evitar más errores, aunque sea obsoleto.
         bool success = await gltf.LoadGltfBinary(modelData);
 
         if (success)
         {
-            // 4. Instanciar el modelo en la escena.
-            gltf.InstantiateMainScene(transform);
-            Debug.Log("✅ Modelo 3D cargado exitosamente desde la ruta local.");
+            // Se usa la versión asíncrona recomendada para Instanciar
+            await gltf.InstantiateMainSceneAsync(transform);
+            Debug.Log("✅ Modelo 3D cargado exitosamente.");
         }
         else
         {
-            Debug.LogError("❌ Fallo al cargar el modelo GLTF/GLB desde el disco.");
+            Debug.LogError("❌ Fallo al cargar el modelo GLTF/GLB.");
         }
     }
 }
