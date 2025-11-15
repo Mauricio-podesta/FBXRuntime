@@ -73,3 +73,7 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+# Ignorar archivos de proyecto Mac que causan problemas de longitud de ruta en Windows
+*.xcodeproj/
+*.xcworkspace/
+*.xcuserstate
