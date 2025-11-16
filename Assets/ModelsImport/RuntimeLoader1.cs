@@ -7,7 +7,7 @@ using NativeFilePickerNamespace;
 using UnityEngine.Networking;
 
 #if UNITY_EDITOR
-using UnityEditor; // 👈 para EditorUtility.OpenFilePanel
+using UnityEditor; 
 #endif
 
 public class RuntimeLoader : MonoBehaviour
@@ -17,20 +17,20 @@ public class RuntimeLoader : MonoBehaviour
     public void OnPickModelPressed()
     {
 #if UNITY_EDITOR
-        // --- 💻 PRUEBA EN PC ---
+      
         string path = EditorUtility.OpenFilePanel("Seleccionar modelo GLB/GLTF", "", "glb,gltf");
         if (!string.IsNullOrEmpty(path))
         {
-            Debug.Log("📁 Archivo seleccionado en editor: " + path);
+            Debug.Log(" Archivo seleccionado en editor: " + path);
             StartCoroutine(ReadAndLoadModel(path));
         }
         else
         {
-            Debug.Log("❌ Selección cancelada.");
+            Debug.Log(" Selección cancelada.");
         }
 
 #elif UNITY_ANDROID || UNITY_OCULUS
-        // --- 🤖 PRUEBA EN OCULUS / ANDROID ---
+       
         if (!NativeFilePicker.CheckPermission())
         {
             Debug.LogWarning("⚠️ Permiso de almacenamiento no otorgado. El sistema lo pedirá automáticamente.");
@@ -41,12 +41,12 @@ public class RuntimeLoader : MonoBehaviour
             {
                 if (path != null)
                 {
-                    Debug.Log("📁 Archivo seleccionado: " + path);
+                    Debug.Log(" Archivo seleccionado: " + path);
                     StartCoroutine(ReadAndLoadModel(path));
                 }
                 else
                 {
-                    Debug.Log("❌ Selección cancelada por el usuario.");
+                    Debug.Log(" Selección cancelada por el usuario.");
                 }
             },
             GLTF_MIME_TYPES
@@ -81,7 +81,7 @@ public class RuntimeLoader : MonoBehaviour
                 if (uwr.isNetworkError || uwr.isHttpError)
 #endif
                 {
-                    Debug.LogError("❌ Error al leer la URI: " + uwr.error);
+                    Debug.LogError(" Error al leer la URI: " + uwr.error);
                     yield break;
                 }
 
@@ -91,7 +91,7 @@ public class RuntimeLoader : MonoBehaviour
 
         if (modelData == null || modelData.Length == 0)
         {
-            Debug.LogError("❌ No se pudieron leer los datos del archivo.");
+            Debug.LogError(" No se pudieron leer los datos del archivo.");
             yield break;
         }
 
@@ -106,11 +106,11 @@ public class RuntimeLoader : MonoBehaviour
         if (success)
         {
             await gltf.InstantiateMainSceneAsync(transform);
-            Debug.Log("✅ Modelo GLTF/GLB cargado correctamente.");
+            Debug.Log(" Modelo GLTF/GLB cargado correctamente.");
         }
         else
         {
-            Debug.LogError("❌ Error al importar el modelo.");
+            Debug.LogError(" Error al importar el modelo.");
         }
     }
 }
