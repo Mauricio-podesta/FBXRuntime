@@ -1100,7 +1100,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 646590186}
         m_TargetAssemblyTypeName: RuntimeLoader, Assembly-CSharp
-        m_MethodName: OpenFileBrowserAndLoad
+        m_MethodName: OnPickModelPressed
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
