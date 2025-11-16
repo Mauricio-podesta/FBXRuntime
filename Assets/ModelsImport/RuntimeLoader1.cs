@@ -13,7 +13,7 @@ using UnityEditor;
 public class RuntimeLoader : MonoBehaviour
 {
     private const string GLTF_MIME_TYPES = "model/gltf+json;model/gltf-binary";
-
+    private bool prueba;
     public void OnPickModelPressed()
     {
 #if UNITY_EDITOR
